@@ -4,6 +4,7 @@ import type { ArgOf } from 'src/repositories/event.repository.js';
 import { OnEvent } from 'src/decorators.js';
 import {
   AdminConfigDto,
+  AdminConfigFieldsDto,
   PublicConfigDto,
   UserConfigDto,
   defaults,
@@ -36,6 +37,11 @@ export class SystemConfigService extends BaseService {
 
   getAdminConfigDefaults(): AdminConfigDto {
     return mapAdminConfig(defaults);
+  }
+
+  async getAdminConfigFields(): Promise<AdminConfigFieldsDto> {
+    const { fields } = await this.getResolvedConfig({ withCache: false });
+    return fields;
   }
 
   async getUserConfig(): Promise<UserConfigDto> {
@@ -82,11 +88,6 @@ export class SystemConfigService extends BaseService {
   }
 
   async updateAdminConfig(dto: AdminConfigDto): Promise<AdminConfigDto> {
-    const { configFile } = this.configRepository.getEnv();
-    if (configFile) {
-      throw new BadRequestException('Cannot update configuration while IMMICH_CONFIG_FILE is in use');
-    }
-
     const oldConfig = await this.getConfig({ withCache: false });
 
     try {
