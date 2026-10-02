@@ -9,7 +9,7 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from random import randint
 from types import SimpleNamespace
-from typing import Any, Callable, TypeVar
+from typing import Any, Callable, Iterator, TypeVar
 from unittest import mock
 
 import numpy as np
@@ -2247,6 +2247,14 @@ def test_ping_endpoint(deployed_app: TestClient) -> None:
     reason="More time-consuming since it deploys the app and loads models.",
 )
 class TestPredictionEndpoints:
+    @pytest.fixture(autouse=True)
+    def providers(self, mocker: MockerFixture) -> Iterator[None]:
+        sessions = mocker.spy(ort, "InferenceSession")
+        yield
+        if settings.test_provider:
+            providers = [session.get_providers()[0] for session in sessions.spy_return_list]
+            assert providers == [settings.test_provider] * len(providers)
+
     def test_clip_image_endpoint(
         self, asset: Callable[[str], bytes], responses: dict[str, Any], deployed_app: TestClient
     ) -> None:

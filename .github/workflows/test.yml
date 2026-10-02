@@ -578,7 +578,7 @@ jobs:
 
   success-check-e2e:
     name: End-to-End Tests Success
-    needs: [e2e-tests-server-cli, e2e-tests-web]
+    needs: [e2e-tests-server-cli, e2e-tests-web, e2e-tests-ml]
     permissions: {}
     runs-on: ubuntu-latest
     if: always()
@@ -651,6 +651,86 @@ jobs:
 
       - name: Run ci-unit
         run: mise run ci-unit
+
+  e2e-tests-ml:
+    name: End-to-End Tests (ML, ${{ matrix.runner }})
+    needs: pre-job
+    if: ${{ fromJSON(needs.pre-job.outputs.should_run).machine-learning == true && !github.event.pull_request.head.repo.fork }}
+    runs-on: ${{ matrix.runner }}
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: pokedex-dgpu-nvidia-pascal
+            device: cuda
+            group: cuda-libs
+            provider: CUDAExecutionProvider
+          - runner: pokedex-dgpu-nvidia-ampere
+            device: cuda
+            group: cuda-libs
+            provider: nv_tensorrt_rtx
+    defaults:
+      run:
+        working-directory: ./machine-learning
+    steps:
+      - id: token
+        uses: immich-app/devtools/actions/create-workflow-token@df46d635b905e618b88fc4c95baa920aeb30b309 # create-workflow-token-action-v3.0.1
+        with:
+          client-id: ${{ secrets.PUSH_O_MATIC_APP_CLIENT_ID }}
+          private-key: ${{ secrets.PUSH_O_MATIC_APP_KEY }}
+          permission-contents: read
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          token: ${{ steps.token.outputs.token }}
+
+      - name: Find the test assets commit
+        id: assets
+        run: echo "ref=$(git rev-parse HEAD:e2e/test-assets)" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          repository: immich-app/test-assets
+          ref: ${{ steps.assets.outputs.ref }}
+          path: e2e/test-assets
+          sparse-checkout: |
+            albums/nature/silver_fir.jpg
+            albums/text/craft-beer.jpg
+            metadata/faces/portrait.jpg
+          sparse-checkout-cone-mode: false
+
+      - name: Setup Mise
+        uses: immich-app/devtools/actions/use-mise@06a9ef925332c91be647d6256642b86b398592c8 # use-mise-action-v3.2.1
+        with:
+          github_token: ${{ steps.token.outputs.token }}
+
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0 # zizmor: ignore[cache-poisoning] nothing here is published
+        with:
+          path: ~/.cache/uv
+          key: uv-ml-${{ runner.os }}-${{ runner.arch }}-${{ matrix.device }}-${{ hashFiles('machine-learning/uv.lock') }}
+
+      - name: Install
+        env:
+          DEVICE: ${{ matrix.device }}
+          GROUP: ${{ matrix.group }}
+        run: mise run install --extra "$DEVICE" ${GROUP:+--group "$GROUP"}
+
+      - name: Run the full tests
+        env:
+          DEVICE: ${{ matrix.device }}
+          MACHINE_LEARNING_TEST_PROVIDER: ${{ matrix.provider }}
+        run: |
+          if [ "$DEVICE" = cuda ]; then
+            nvidia-smi --query-gpu=name,driver_version,compute_cap --format=csv
+            # the CUDA libraries come from the venv here, where the image has them in its base
+            libs=(.venv/lib/python*/site-packages/nvidia/*/lib)
+            export LD_LIBRARY_PATH=$(IFS=:; echo "${libs[*]/#/$PWD/}")
+          fi
+          mise run test-full
 
   github-files-formatting:
     name: .github Files Formatting
