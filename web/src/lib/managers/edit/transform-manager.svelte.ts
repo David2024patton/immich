@@ -191,7 +191,7 @@ class TransformManager implements EditToolManager {
     });
 
     // eslint-disable-next-line unicorn/no-unnecessary-global-this
-    globalThis.addEventListener('mousemove', (e: MouseEvent) => transformManager.handleMouseMove(e), { passive: true });
+    globalThis.addEventListener('mousemove', this.mouseMoveHandler, { passive: true });
 
     const transformEdits = edits.filter((e) => e.action === 'rotate' || e.action === 'mirror');
 
@@ -208,10 +208,26 @@ class TransformManager implements EditToolManager {
   }
 
   onDeactivate() {
-    // eslint-disable-next-line unicorn/no-unnecessary-global-this
-    globalThis.removeEventListener('mousemove', transformManager.handleMouseMove);
-
+    this.removeMouseMoveListener();
     this.reset();
+  }
+
+  onPause() {
+    this.removeMouseMoveListener();
+  }
+
+  async onResume() {
+    // eslint-disable-next-line unicorn/no-unnecessary-global-this
+    globalThis.addEventListener('mousemove', this.mouseMoveHandler, { passive: true });
+    await tick();
+    this.resizeCanvas();
+  }
+
+  private mouseMoveHandler = (e: MouseEvent) => this.handleMouseMove(e);
+
+  private removeMouseMoveListener() {
+    // eslint-disable-next-line unicorn/no-unnecessary-global-this
+    globalThis.removeEventListener('mousemove', this.mouseMoveHandler);
   }
 
   reset() {

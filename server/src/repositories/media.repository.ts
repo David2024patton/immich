@@ -21,7 +21,7 @@ import type {
 } from 'src/types.js';
 import { ORIENTATION_TO_SHARP_ROTATION } from 'src/constants.js';
 import { Exif } from 'src/database.js';
-import { AssetEditActionItem } from 'src/dtos/editing.dto.js';
+import { AssetEditAction, AssetEditActionItem } from 'src/dtos/editing.dto.js';
 import {
   AacProfile,
   Av1Profile,
@@ -37,6 +37,7 @@ import {
   RawExtractedFormat,
 } from 'src/enum.js';
 import { LoggingRepository } from 'src/repositories/logging.repository.js';
+import { applyAdjustments, isAdjustNoop } from 'src/utils/adjustments.js';
 import { handlePromiseError } from 'src/utils/misc.js';
 import { createAffineMatrix } from 'src/utils/transform.js';
 
@@ -166,13 +167,25 @@ export class MediaRepository {
       });
     }
 
-    const affineEditOperations = edits.filter((edit) => edit.action !== 'crop');
+    const affineEditOperations = edits.filter((edit) => edit.action !== 'crop' && edit.action !== 'adjust');
     if (affineEditOperations.length > 0) {
       const { a, b, c, d } = createAffineMatrix(affineEditOperations);
       pipeline = pipeline.affine([
         [a, b],
         [c, d],
       ]);
+    }
+
+    const adjust = edits.find((edit) => edit.action === 'adjust');
+    if (adjust) {
+      const { sharpness = 0, autoEnhance = false } = adjust.parameters;
+      if (autoEnhance) {
+        // image-adaptive histogram stretch, the manual recipe is merged in applyAdjustments
+        pipeline = pipeline.normalize();
+      }
+      if (sharpness > 0) {
+        pipeline = pipeline.sharpen({ sigma: 0.5 + (sharpness / 100) * 1.5 });
+      }
     }
 
     return pipeline;
@@ -215,15 +228,22 @@ export class MediaRepository {
 
   /* Resamples in linear light; averaging gamma-encoded values darkens the result and loses detail. `colorspace`
    * always has a sRGB transfer function and scRGB applies no primaries matrix, so linearising as sRGB is exact. */
-  private transform(image: Bitmap, { size, fit = 'outside', edits = [] }: TransformOptions): Promise<Bitmap> {
+  private async transform(image: Bitmap, { size, fit = 'outside', edits = [] }: TransformOptions): Promise<Bitmap> {
     if (!size && edits.length === 0) {
-      return Promise.resolve(image);
+      return image;
     }
 
-    return this.edit(this.raw(image).pipelineColorspace('scrgb'), edits)
+    const bitmap = await this.edit(this.raw(image).pipelineColorspace('scrgb'), edits)
       .resize(size, size, { fit, withoutEnlargement: true })
       .raw()
       .toBuffer({ resolveWithObject: true });
+
+    const adjust = edits.find((edit) => edit.action === AssetEditAction.Adjust);
+    if (!adjust || isAdjustNoop(adjust.parameters)) {
+      return bitmap;
+    }
+
+    return applyAdjustments(bitmap, adjust.parameters);
   }
 
   private raw({ data, info: raw }: Bitmap) {

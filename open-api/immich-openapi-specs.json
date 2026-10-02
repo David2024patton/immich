@@ -20366,12 +20366,100 @@
         ],
         "type": "object"
       },
+      "AdjustParameters": {
+        "properties": {
+          "autoEnhance": {
+            "description": "Apply automatic image-adaptive enhancement",
+            "type": "boolean"
+          },
+          "blacks": {
+            "description": "Black point adjustment",
+            "maximum": 100,
+            "minimum": -100,
+            "type": "number"
+          },
+          "brightness": {
+            "description": "Brightness adjustment",
+            "maximum": 100,
+            "minimum": -100,
+            "type": "number"
+          },
+          "contrast": {
+            "description": "Contrast adjustment",
+            "maximum": 100,
+            "minimum": -100,
+            "type": "number"
+          },
+          "exposure": {
+            "description": "Exposure adjustment in EV steps",
+            "maximum": 3,
+            "minimum": -3,
+            "type": "number"
+          },
+          "highlights": {
+            "description": "Highlight tone adjustment",
+            "maximum": 100,
+            "minimum": -100,
+            "type": "number"
+          },
+          "saturation": {
+            "description": "Saturation adjustment",
+            "maximum": 100,
+            "minimum": -100,
+            "type": "number"
+          },
+          "shadows": {
+            "description": "Shadow tone adjustment",
+            "maximum": 100,
+            "minimum": -100,
+            "type": "number"
+          },
+          "sharpness": {
+            "description": "Output sharpness",
+            "maximum": 100,
+            "minimum": 0,
+            "type": "number"
+          },
+          "tint": {
+            "description": "Green/magenta tint, positive is greener",
+            "maximum": 100,
+            "minimum": -100,
+            "type": "number"
+          },
+          "vibrance": {
+            "description": "Vibrance adjustment (smart saturation)",
+            "maximum": 100,
+            "minimum": -100,
+            "type": "number"
+          },
+          "vignette": {
+            "description": "Vignette strength",
+            "maximum": 100,
+            "minimum": 0,
+            "type": "number"
+          },
+          "warmth": {
+            "description": "Color temperature, positive is warmer",
+            "maximum": 100,
+            "minimum": -100,
+            "type": "number"
+          },
+          "whites": {
+            "description": "White point adjustment",
+            "maximum": 100,
+            "minimum": -100,
+            "type": "number"
+          }
+        },
+        "type": "object"
+      },
       "AssetEditAction": {
         "description": "Type of edit action to perform",
         "enum": [
           "crop",
           "rotate",
-          "mirror"
+          "mirror",
+          "adjust"
         ],
         "type": "string"
       },
@@ -20390,9 +20478,12 @@
               },
               {
                 "$ref": "#/components/schemas/MirrorParameters"
+              },
+              {
+                "$ref": "#/components/schemas/AdjustParameters"
               }
             ],
-            "description": "List of edit actions to apply (crop, rotate, or mirror)"
+            "description": "List of edit actions to apply (crop, rotate, mirror, or adjust)"
           }
         },
         "required": [
@@ -20422,9 +20513,12 @@
               },
               {
                 "$ref": "#/components/schemas/MirrorParameters"
+              },
+              {
+                "$ref": "#/components/schemas/AdjustParameters"
               }
             ],
-            "description": "List of edit actions to apply (crop, rotate, or mirror)"
+            "description": "List of edit actions to apply (crop, rotate, mirror, or adjust)"
           }
         },
         "required": [
@@ -20437,7 +20531,7 @@
       "AssetEditsCreateDto": {
         "properties": {
           "edits": {
-            "description": "List of edit actions to apply (crop, rotate, or mirror)",
+            "description": "List of edit actions to apply (crop, rotate, mirror, or adjust)",
             "items": {
               "$ref": "#/components/schemas/AssetEditActionItemDto"
             },
@@ -30845,42 +30939,42 @@
             "type": "number"
           },
           "x1": {
-            "description": "Top-left X coordinate (normalized 0–1)",
+            "description": "Top-left X coordinate (normalized 0\u20131)",
             "format": "double",
             "type": "number"
           },
           "x2": {
-            "description": "Top-right X coordinate (normalized 0–1)",
+            "description": "Top-right X coordinate (normalized 0\u20131)",
             "format": "double",
             "type": "number"
           },
           "x3": {
-            "description": "Bottom-right X coordinate (normalized 0–1)",
+            "description": "Bottom-right X coordinate (normalized 0\u20131)",
             "format": "double",
             "type": "number"
           },
           "x4": {
-            "description": "Bottom-left X coordinate (normalized 0–1)",
+            "description": "Bottom-left X coordinate (normalized 0\u20131)",
             "format": "double",
             "type": "number"
           },
           "y1": {
-            "description": "Top-left Y coordinate (normalized 0–1)",
+            "description": "Top-left Y coordinate (normalized 0\u20131)",
             "format": "double",
             "type": "number"
           },
           "y2": {
-            "description": "Top-right Y coordinate (normalized 0–1)",
+            "description": "Top-right Y coordinate (normalized 0\u20131)",
             "format": "double",
             "type": "number"
           },
           "y3": {
-            "description": "Bottom-right Y coordinate (normalized 0–1)",
+            "description": "Bottom-right Y coordinate (normalized 0\u20131)",
             "format": "double",
             "type": "number"
           },
           "y4": {
-            "description": "Bottom-left Y coordinate (normalized 0–1)",
+            "description": "Bottom-left Y coordinate (normalized 0\u20131)",
             "format": "double",
             "type": "number"
           }
@@ -32347,7 +32441,7 @@
             "type": "array"
           },
           "projectionType": {
-            "description": "Array of projection types for 360° content (e.g., \"EQUIRECTANGULAR\", \"CUBEFACE\", \"CYLINDRICAL\")",
+            "description": "Array of projection types for 360\u00b0 content (e.g., \"EQUIRECTANGULAR\", \"CUBEFACE\", \"CYLINDRICAL\")",
             "items": {
               "nullable": true,
               "type": "string"

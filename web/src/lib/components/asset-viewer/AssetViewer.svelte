@@ -47,6 +47,7 @@
   import ActivityViewer from './ActivityViewer.svelte';
   import DetailPanel from './DetailPanel.svelte';
   import EditorPanel from './editor/EditorPanel.svelte';
+  import AdjustPreview from './editor/adjust-tool/AdjustPreview.svelte';
   import CropArea from './editor/transform-tool/CropArea.svelte';
   import ImagePanoramaViewer from './ImagePanoramaViewer.svelte';
   import OcrButton from './OcrButton.svelte';
@@ -449,6 +450,9 @@
     if (assetViewerManager.isShowEditor && editManager.selectedTool?.type === EditToolType.Transform) {
       return 'CropArea';
     }
+    if (assetViewerManager.isShowEditor && editManager.selectedTool?.type === EditToolType.Adjust) {
+      return 'AdjustPreview';
+    }
     return 'PhotoViewer';
   });
 
@@ -583,6 +587,8 @@
       <ImagePanoramaViewer {asset} />
     {:else if viewerKind === 'CropArea'}
       <CropArea {asset} />
+    {:else if viewerKind === 'AdjustPreview'}
+      <AdjustPreview {asset} />
     {:else if viewerKind === 'PhotoViewer'}
       <PhotoViewer cursor={{ ...cursor, current: asset }} {sharedLink} {onSwipe} />
     {:else if viewerKind === 'VideoViewer'}

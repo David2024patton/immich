@@ -2,7 +2,7 @@
   import { shortcuts } from '$lib/actions/shortcut';
   import { editManager, EditToolType } from '$lib/managers/edit/edit-manager.svelte';
   import { websocketEvents } from '$lib/stores/websocket';
-  import { getAssetEdits, type AssetResponseDto } from '@immich/sdk';
+  import { getAssetEdits, type AssetEditsCreateDto, type AssetResponseDto } from '@immich/sdk';
   import { Button, HStack, IconButton } from '@immich/ui';
   import { mdiClose } from '@mdi/js';
   import { onDestroy, onMount } from 'svelte';
@@ -22,13 +22,19 @@
   }
 
   onMount(async () => {
-    const edits = await getAssetEdits({ id: asset.id });
-    await editManager.activateTool(EditToolType.Transform, asset, edits);
+    savedEdits = await getAssetEdits({ id: asset.id });
+    await editManager.activateTool(EditToolType.Transform, asset, savedEdits);
   });
 
   onDestroy(() => {
     editManager.cleanup();
   });
+
+  async function switchTool(toolType: EditToolType) {
+    if (savedEdits) {
+      await editManager.activateTool(toolType, asset, savedEdits);
+    }
+  }
 
   async function applyEdits() {
     const success = await editManager.applyEdits();
@@ -45,6 +51,12 @@
   }
 
   let { asset = $bindable(), onClose }: Props = $props();
+
+  let savedEdits = $state<AssetEditsCreateDto | null>(null);
+
+  function toolLabel(toolType: EditToolType): string {
+    return toolType === EditToolType.Transform ? $t('editor_tool_transform') : $t('editor_tool_adjust');
+  }
 </script>
 
 <svelte:document
@@ -68,6 +80,20 @@
       <p class="text-lg text-immich-fg capitalize dark:text-immich-dark-fg">{$t('editor')}</p>
     </HStack>
     <Button shape="round" size="small" onclick={applyEdits} loading={editManager.isApplyingEdits}>{$t('save')}</Button>
+  </HStack>
+
+  <HStack class="mt-2 justify-center gap-2 px-4">
+    {#each editManager.tools as tool (tool.type)}
+      <IconButton
+        shape="round"
+        variant={editManager.selectedTool?.type === tool.type ? 'filled' : 'ghost'}
+        color={editManager.selectedTool?.type === tool.type ? 'primary' : 'secondary'}
+        icon={tool.icon}
+        aria-label={toolLabel(tool.type)}
+        aria-pressed={editManager.selectedTool?.type === tool.type}
+        onclick={() => switchTool(tool.type)}
+      />
+    {/each}
   </HStack>
 
   <section>

@@ -1,8 +1,11 @@
 import { editAsset, removeAssetEdits, type AssetEditsCreateDto, type AssetResponseDto } from '@immich/sdk';
 import { ConfirmModal, modalManager, toastManager } from '@immich/ui';
-import { mdiCropRotate } from '@mdi/js';
+import { mdiCropRotate, mdiTune } from '@mdi/js';
 import type { Component } from 'svelte';
+import { SvelteSet } from 'svelte/reactivity';
+import AdjustTool from '$lib/components/asset-viewer/editor/adjust-tool/AdjustTool.svelte';
 import TransformTool from '$lib/components/asset-viewer/editor/transform-tool/TransformTool.svelte';
+import { adjustManager } from '$lib/managers/edit/adjust-manager.svelte';
 import { transformManager } from '$lib/managers/edit/transform-manager.svelte';
 import { eventManager } from '$lib/managers/event-manager.svelte';
 import { waitForWebsocketEvent } from '$lib/stores/websocket';
@@ -14,6 +17,10 @@ export type EditActions = EditAction[];
 export interface EditToolManager {
   onActivate: (asset: AssetResponseDto, edits: EditActions) => Promise<void>;
   onDeactivate: () => void;
+  /** Called when switching to another tool; state must be kept for resume. */
+  onPause?: () => void;
+  /** Called when switching back to a previously activated tool. */
+  onResume?: (asset: AssetResponseDto) => Promise<void> | void;
   resetAllChanges: () => Promise<void>;
   hasChanges: boolean;
   canReset: boolean;
@@ -22,6 +29,7 @@ export interface EditToolManager {
 
 export enum EditToolType {
   Transform = 'transform',
+  Adjust = 'adjust',
 }
 
 export interface EditTool {
@@ -39,10 +47,17 @@ export class EditManager {
       component: TransformTool,
       manager: transformManager,
     },
+    {
+      type: EditToolType.Adjust,
+      icon: mdiTune,
+      component: AdjustTool,
+      manager: adjustManager,
+    },
   ];
 
   currentAsset = $state<AssetResponseDto | null>(null);
   selectedTool = $state<EditTool | null>(null);
+  private activatedTools = new SvelteSet<EditToolType>();
 
   // used to disable multiple confirm dialogs and mouse events while one is open
   isShowingConfirmDialog = $state(false);
@@ -92,11 +107,16 @@ export class EditManager {
 
     this.currentAsset = asset;
 
-    this.selectedTool?.manager.onDeactivate?.();
+    this.selectedTool?.manager.onPause?.();
     const newTool = this.tools.find((t) => t.type === toolType);
     if (newTool) {
       this.selectedTool = newTool;
-      await newTool.manager.onActivate?.(asset, edits.edits);
+      if (this.activatedTools.has(toolType)) {
+        await newTool.manager.onResume?.(asset);
+      } else {
+        this.activatedTools.add(toolType);
+        await newTool.manager.onActivate?.(asset, edits.edits);
+      }
     }
   }
 
@@ -104,6 +124,7 @@ export class EditManager {
     for (const tool of this.tools) {
       tool.manager.onDeactivate?.();
     }
+    this.activatedTools.clear();
     this.currentAsset = null;
     this.selectedTool = null;
   }

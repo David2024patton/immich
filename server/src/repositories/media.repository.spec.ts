@@ -320,6 +320,63 @@ describe(MediaRepository.name, () => {
     });
   });
 
+  describe('edit (adjust action)', () => {
+    it('should apply adjust edits through the transform pipeline', async () => {
+      const imageBuffer = await sharp({
+        create: { width: 100, height: 100, channels: 3, background: { r: 200, g: 100, b: 50 } },
+      })
+        .png()
+        .toBuffer();
+      const decoded = await sut.decodeImage(imageBuffer, {
+        colorspace: Colorspace.Srgb,
+        processInvalidImages: false,
+      });
+
+      const result = await sut['transform'](decoded, {
+        edits: [{ action: AssetEditAction.Adjust, parameters: { saturation: -100 } }],
+      });
+
+      const { data, info } = result;
+      const idx = (50 * info.width + 50) * info.channels;
+      const r = data[idx];
+      const g = data[idx + 1];
+      const b = data[idx + 2];
+      expect(Math.abs(r - g)).toBeLessThanOrEqual(3);
+      expect(Math.abs(g - b)).toBeLessThanOrEqual(3);
+    });
+
+    it('should skip the adjustment pass for noop adjust edits', async () => {
+      const imageBuffer = await sharp({
+        create: { width: 100, height: 100, channels: 3, background: { r: 200, g: 100, b: 50 } },
+      })
+        .png()
+        .toBuffer();
+      const decoded = await sut.decodeImage(imageBuffer, {
+        colorspace: Colorspace.Srgb,
+        processInvalidImages: false,
+      });
+
+      const result = await sut['transform'](decoded, {
+        edits: [{ action: AssetEditAction.Adjust, parameters: {} }],
+      });
+
+      const { data, info } = result;
+      const idx = (50 * info.width + 50) * info.channels;
+      expect({ r: data[idx], g: data[idx + 1], b: data[idx + 2] }).toEqual({ r: 200, g: 100, b: 50 });
+    });
+
+    it('should apply sharpness and auto enhance in the sharp pipeline', async () => {
+      const imageBuffer = await buildTestQuadImage();
+      const result = sut['edit'](sharp(imageBuffer), [
+        { action: AssetEditAction.Adjust, parameters: { sharpness: 50, autoEnhance: true } },
+      ]);
+
+      const metadata = await result.toBuffer().then((buf) => sharp(buf).metadata());
+      expect(metadata.width).toBe(1000);
+      expect(metadata.height).toBe(1000);
+    });
+  });
+
   describe('generateThumbnail', () => {
     it('should process random Authentik thumbnail image', async () => {
       const response = await fetch(
